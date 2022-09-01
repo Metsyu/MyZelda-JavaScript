@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<head>
+    <meta charset = "UTF-8">
+    <script src = "assets/map.js"></script>
+    <title>MyZelda</title>
+</head>
+<body>
+<canvas id = "myCanvas" width = "700" height = "500" style = "border: 3px solid black"></canvas>
+<script type = "text/javascript">
+
+    class Game
+    {
+        constructor()
+        {
+            this.model = new Model()
+            this.controller = new Controller(this.model)
+            this.view = new View(this.controller, this.model)
+        }
+
+        onTimer()
+        {
+            this.controller.update()
+            this.model.update()
+            this.view.update()
+        }
+    }
+
+    class Controller
+    {
+        constructor(model)
+        {
+            this.model = model
+            this.keyLeft = false
+            this.keyRight = false
+            this.keyUp = false
+            this.keyDown = false
+            this.walkingImageCycle = 0
+            let self = this
+            document.addEventListener("keydown", function(event) { self.keyPressed(event) }, false)
+            document.addEventListener("keyup", function(event) { self.keyReleased(event) }, false)
+        }
+
+        setView(view) { this.view = view }
+
+        update()
+        {
+            this.model.link.savePrevLocation()
+
+            //If keyRight == true
+            if(this.keyRight)
+            {
+                //Update link's direction to RIGHT
+                this.model.link.direction = "RIGHT"
+
+                //Increment link's x position
+                this.model.link.x += this.model.link.speed
+            }
+
+            //If keyLeft == true
+            if(this.keyLeft)
+            {
+                //Update link's direction to LEFT
+                this.model.link.direction = "LEFT"
+
+                //Decrement link's x position
+                this.model.link.x -= this.model.link.speed
+            }
+
+            //If keyDown == true
+            if(this.keyDown)
+            {
+                //Update link's direction to DOWN
+                this.model.link.direction = "DOWN"
+
+                //Increment link's y position
+                this.model.link.y += this.model.link.speed
+            }
+
+            //If keyUp == true
+            if(this.keyUp)
+            {
+                //Update link's direction to UP
+                this.model.link.direction = "UP"
+
+                //Decrement link's y position
+                this.model.link.y -= this.model.link.speed
+            }
+
+            //If keyDown, keyRight, keyLeft, or keyUp == true
+            if(this.keyDown || this.keyRight || this.keyLeft || this.keyUp)
+            {
+                this.model.link.updateFrames()
+            }
+        }
+
+        keyPressed(event)
+        {
+            //If 'Right Arrow' key is pressed: Move link right
+            if(event.keyCode == 39)
+            {
+                this.keyRight = true
+                this.model.link.walking = true
+            }
+
+            //If 'Left Arrow' key is pressed: Move link left
+            else if(event.keyCode == 37)
+            {
+                this.keyLeft = true
+                this.model.link.walking = true
+            }
+
+            //If 'Up Arrow' key is pressed: Move link up
+            else if(event.keyCode == 38)
+            {
+                this.keyUp = true
+                this.model.link.walking = true
+            }
+
+            //If 'Down Arrow' key is pressed: Move link down
+            else if(event.keyCode == 40)
+            {
+                this.keyDown = true
+                this.model.link.walking = true
+            }
+        }
+
+        keyReleased(event)
+        {
+            //If 'Right Arrow' key is released: Stop moving link right
+            if(event.keyCode == 39)
+            {
+                this.keyRight = false
+                this.model.link.walking = false
+            }
+
+            //If 'Left Arrow' key is released: Stop moving link left
+            else if(event.keyCode == 37)
+            {
+                this.keyLeft = false
+                this.model.link.walking = false
+            }
+
+            //If 'Up Arrow' key is released: Stop moving link up
+            else if(event.keyCode == 38)
+            {
+                this.keyUp = false
+                this.model.link.walking = false
+            }
+
+            //If 'Down Arrow' key is released: Stop moving link down
+            else if(event.keyCode == 40)
+            {
+                this.keyDown = false
+                this.model.link.walking = false
+            }
+
+            //If 'CTRL' key is pressed: Throw a dagger
+            else if(event.keyCode == 17) this.model.addRemoveSprites()
+        }
+    }
+
+    class View
+    {
+        static scrollPosX = 0
+        static scrollPosY = 0
+        static screenWidth = 700
+        static screenHeight = 500
+
+        constructor(controller, model)
+        {
+            this.model = model
+            this.controller = controller
+            this.canvas = document.getElementById("myCanvas")
+            let self = this
+            this.controller.setView(self)
+        }
+
+        update()
+        {
+            let ctx = this.canvas.getContext("2d")
+            ctx.globalCompositeOperation = "destination-under"
+            ctx.fillStyle = "rgba(40,40,40,255)"
+            ctx.fillRect(0, 0, View.screenWidth, View.screenHeight)
+            for (let i = 0; i < this.model.sprites.length; i++)
+            {
+                this.model.sprites[i].drawYourself(ctx)
+            }
+        }
+
+        static goRight()
+        {
+            if(View.scrollPosX < View.screenWidth)
+                View.scrollPosX += View.screenWidth
+        }
+
+        static goLeft()
+        {
+            if(View.scrollPosX > 0)
+                View.scrollPosX -= View.screenWidth
+        }
+
+        static goUp()
+        {
+            if(View.scrollPosY > 0)
+                View.scrollPosY -= View.screenHeight
+        }
+
+        static goDown()
+        {
+            if(View.scrollPosY < View.screenHeight)
+                View.scrollPosY += View.screenHeight
+        }
+    }
+
+    class Model
+    {
+        constructor()
+        {
+            this.sprites = []
+            this.link = new Link(105, 105)
+            this.sprites.push(this.link)
+
+            for(let i = 0; i < bricks.length; i++)
+            {
+                let brick = bricks[i]
+                this.sprites.push(new Brick(brick[0], brick[1]))
+            }
+
+            for(let i = 0; i < pots.length; i++)
+            {
+                let pot = pots[i]
+                this.sprites.push(new Pot(pot[0], pot[1]))
+            }
+        }
+
+        update()
+        {
+            //Iterate through the array of sprites
+            for(let i = 0; i < this.sprites.length; i++)
+            {
+                //If the current sprite isn't link or a dagger
+                if(!this.sprites[i].isLink() && !this.sprites[i].isDagger())
+                {
+                    //Check if there is a collision between link and the current sprite
+                    if(this.isThereACollision(this.link, this.sprites[i]))
+                    {
+                        //If the current sprite is a brick
+                        if(this.sprites[i].isBrick())
+                        {
+                            //Signal link to get out of the current sprite
+                            this.link.getOutOfSprite(this.sprites[i]);
+                        }
+                        //If the current sprite is a pot
+                        else if(this.sprites[i].isPot())
+                        {
+                            //Signal the pot that it has collided with link
+                            this.sprites[i].collided(this.link, this.link.direction);
+                        }
+                    }
+                    //Check if the current sprite is a pot
+                    if(this.sprites[i].isPot())
+                    {
+                        //Iterate through the array of sprites
+                        for(let j = 0; j < this.sprites.length; j++)
+                        {
+                            //Check if there is a collision between the pot and another sprite
+                            if(this.isThereACollision(this.sprites[i], this.sprites[j]))
+                            {
+                                //If the sprite that collided with the pot is a brick
+                                if(this.sprites[j].isBrick())
+                                {
+                                    //Signal the pot that it has collided with another sprite
+                                    this.sprites[i].collided(this.sprites[j], this.sprites[i].getDirection());
+                                }
+                            }
+                        }
+                    }
+                }
+                //If the current sprite is a dagger
+                if(this.sprites[i].isDagger())
+                {
+                    //Iterate through the array of sprites
+                    for(let j = 0; j < this.sprites.length; j++)
+                    {
+                        //Check if there is a collision between a dagger and any other sprites, excluding daggers and link
+                        if(this.isThereACollision(this.sprites[i], this.sprites[j]) && !this.sprites[j].isDagger() && !this.sprites[j].isLink())
+                        {
+                            //Signal the dagger that it has collided
+                            this.sprites[i].collided(this.sprites[j], this.sprites[j].getDirection());
+
+                            //If the current sprite is a pot
+                            if(this.sprites[j].isPot())
+                            {
+                                //Signal the pot that it has collided with another sprite
+                                this.sprites[j].collided(this.sprites[i], this.sprites[i].getDirection());
+                            }
+                        }
+                    }
+                }
+
+                //Call all sprites update functions, if update returns false, remove it from the sprites array
+                if(!this.sprites[i].update())
+                    this.sprites.splice(i, 1);
+            }
+
+            //If link's x position is >= screen_width, call goRight()
+            if (this.link.x >= View.screenWidth)
+            {
+                View.goRight()
+            }
+
+            //If link's y position is >= screen_height, call goDown()
+            if (this.link.y >= View.screenHeight)
+            {
+                View.goDown()
+            }
+
+            //If link's x position is <= screen_width, call goLeft()
+            if (this.link.x <= View.screenWidth)
+            {
+                View.goLeft()
+            }
+
+            //If link's y position is <= screen_width, call goUp()
+            if (this.link.y <= View.screenHeight)
+            {
+                View.goUp()
+            }
+        }
+
+        isThereACollision(s, s1)
+        {
+            if(s.y + s.h < s1.y)
+                return false;
+            if(s.y > s1.y + s1.h)
+                return false;
+            if(s.x + s.w < s1.x)
+                return false;
+            if(s.x > s1.x + s1.w)
+                return false;
+            else
+                return true;
+        }
+
+        addRemoveSprites()
+        {
+            let d = new Dagger(this.link.x + this.link.w/4, this.link.y + this.link.h/4, this.link.direction)
+            this.sprites.push(d)
+        }
+    }
+
+    class Sprite
+    {
+        constructor(x, y, w, h)
+        {
+            this.x = x
+            this.y = y
+            this.w = w
+            this.h = h
+        }
+
+        drawYourself(ctx) { }
+
+        update() { return true }
+
+        collided(s, direction) { }
+
+        getDirection() { return null }
+
+        isLink() { return false }
+
+        isBrick() { return false }
+
+        isPot() { return false }
+
+        isDagger() { return false }
+    }
+
+    class Link extends Sprite
+    {
+        constructor(x, y)
+        {
+            super(x, y, 45, 58)
+            this.prevX = this.x
+            this.prevY = this.y
+            this.walking = false
+            this.direction = "DOWN"
+            this.walkingImageCycle = 0
+            this.speed = 6
+            this.walkingMaxImages = 10
+
+            //Load Images
+            this.standingBackward = new Image()
+            this.standingBackward.src = "assets/link_images/link_standing/link_standing_backward.png"
+
+            this.standingForward = new Image()
+            this.standingForward.src = "assets/link_images/link_standing/link_standing_forward.png"
+
+            this.standingLeft = new Image()
+            this.standingLeft.src = "assets/link_images/link_standing/link_standing_left.png"
+
+            this.standingRight = new Image()
+            this.standingRight.src = "assets/link_images/link_standing/link_standing_right.png"
+
+            this.walkingBackward = []
+            for(let i = 0; i < this.walkingMaxImages; i++)
+            {
+                let image = new Image()
+                image.src = "assets/link_images/link_walking/link_walking_backward/link_walking_backward" + i + ".png"
+                this.walkingBackward.push(image)
+            }
+
+            this.walkingForward = []
+            for(let i = 0; i < this.walkingMaxImages; i++)
+            {
+                let image = new Image()
+                image.src = "assets/link_images/link_walking/link_walking_forward/link_walking_forward" + i + ".png"
+                this.walkingForward.push(image)
+            }
+
+            this.walkingLeft = []
+            for(let i = 0; i < this.walkingMaxImages; i++)
+            {
+                let image = new Image()
+                image.src = "assets/link_images/link_walking/link_walking_left/link_walking_left" + i + ".png"
+                this.walkingLeft.push(image)
+            }
+
+            this.walkingRight = []
+            for(let i = 0; i < this.walkingMaxImages; i++)
+            {
+                let image = new Image()
+                image.src = "assets/link_images/link_walking/link_walking_right/link_walking_right" + i + ".png"
+                this.walkingRight.push(image)
+            }
+        }
+
+        getOutOfSprite(s)
+        {
+            //Walking right
+            if(this.x + this.w >= s.x && this.prevX + this.w <= s.x)
+                this.x = this.prevX
+            //Walking left
+            else if(this.x <= s.x + s.w && this.prevX >= s.x + s.w)
+                this.x = this.prevX
+            //Walking down
+            else if(this.y + this.h >= s.y && this.prevY + this.h <= s.y)
+                this.y = this.prevY
+            //Walking up
+            else if(this.y <= s.y + s.h && this.prevY >= s.y + s.h)
+                this.y = this.prevY
+        }
+
+        savePrevLocation()
+        {
+            this.prevX = this.x
+            this.prevY = this.y
+        }
+
+        getDirection() { return this.direction }
+
+        updateFrames()
+        {
+            //Increment walking_image_cycle
+            this.walkingImageCycle++
+
+            //If walking_image_cycle == walking_max_images, reset walking_image_cycle to 0
+            if(this.walkingImageCycle == this.walkingMaxImages)
+                this.walkingImageCycle = 0
+        }
+
+        drawYourself(ctx)
+        {
+            if(this.walking)
+            {
+                switch(this.direction)
+                {
+                    case "RIGHT":
+                        ctx.drawImage(this.walkingRight[this.walkingImageCycle], this.x - View.scrollPosX, this.y - View.scrollPosY)
+                        break
+                    case "LEFT":
+                        ctx.drawImage(this.walkingLeft[this.walkingImageCycle], this.x - View.scrollPosX, this.y - View.scrollPosY)
+                        break
+                    case "DOWN":
+                        ctx.drawImage(this.walkingForward[this.walkingImageCycle], this.x - View.scrollPosX, this.y - View.scrollPosY)
+                        break
+                    case "UP":
+                        ctx.drawImage(this.walkingBackward[this.walkingImageCycle], this.x - View.scrollPosX, this.y - View.scrollPosY)
+                        break
+                }
+            }
+            else
+            {
+                switch(this.direction)
+                {
+                    case "RIGHT":
+                        ctx.drawImage(this.standingRight, this.x - View.scrollPosX, this.y - View.scrollPosY)
+                        break
+                    case "LEFT":
+                        ctx.drawImage(this.standingLeft, this.x - View.scrollPosX, this.y - View.scrollPosY)
+                        break
+                    case "DOWN":
+                        ctx.drawImage(this.standingForward, this.x - View.scrollPosX, this.y - View.scrollPosY)
+                        break
+                    case "UP":
+                        ctx.drawImage(this.standingBackward, this.x - View.scrollPosX, this.y - View.scrollPosY)
+                        break
+                }
+            }
+        }
+
+        isLink() { return true }
+    }
+
+    class Brick extends Sprite
+    {
+        constructor(x, y)
+        {
+            super(x,y, 50, 50)
+
+            //Load image
+            this.image = new Image()
+            this.image.src = "assets/brick.jpg"
+        }
+
+        drawYourself(ctx) { ctx.drawImage(this.image, this.x - View.scrollPosX, this.y - View.scrollPosY) }
+
+        isBrick() { return true }
+    }
+
+    class Pot extends Sprite
+    {
+        constructor(x, y)
+        {
+            super(x,y, 35, 35)
+            this.daggerCollision = false
+            this.linkCollision = false
+            this.brickCollision = false
+            this.framesBroken = 0
+            this.speed = 12
+            this.maxFramesBroken = 4
+
+            //Load image
+            this.image = new Image()
+            this.image.src = "assets/pot.png"
+
+            this.imageBroken = new Image()
+            this.imageBroken.src = "assets/pot_broken.png"
+        }
+
+        update()
+        {
+            //If there was a dagger or brick collision detected, increment frames_broken
+            if(this.daggerCollision || this.brickCollision)
+            {
+                this.framesBroken++
+            }
+
+            //Else if there was a link collision detected
+            else if(this.linkCollision)
+            {
+                switch(this.direction)
+                {
+                    //If direction == RIGHT, increment the pot's x position
+                    case "RIGHT":
+                        this.x += this.speed
+                        break
+
+                    //If direction == LEFT, decrement the pot's x position
+                    case "LEFT":
+                        this.x -= this.speed
+                        break
+
+                    //If direction == DOWN, increment the pot's y position
+                    case "DOWN":
+                        this.y += this.speed
+                        break
+
+                    //If direction == UP, decrement the pot's x position
+                    case "UP":
+                        this.y -= this.speed
+                        break
+                }
+            }
+
+            //Return true if frames_broken != 4
+            return this.framesBroken != this.maxFramesBroken;
+        }
+
+        collided(s, direction)
+        {
+            if(s.isDagger())
+                this.daggerCollision = true
+            else if(s.isLink())
+            {
+                this.direction = direction
+                this.linkCollision = true
+            }
+            else if(s.isBrick())
+            {
+                this.brickCollision = true
+            }
+        }
+
+        getDirection() { return this.direction }
+
+        drawYourself(ctx)
+        {
+            if(this.daggerCollision || this.brickCollision)
+            {
+                ctx.drawImage(this.imageBroken, this.x - View.scrollPosX, this.y - View.scrollPosY)
+            }
+            else
+                ctx.drawImage(this.image, this.x - View.scrollPosX, this.y - View.scrollPosY)
+        }
+
+        isPot() { return true }
+    }
+
+    class Dagger extends Sprite
+    {
+        constructor(x, y, direction)
+        {
+            super(x,y, 27, 27)
+            this.speed = 12
+            this.direction = direction
+            this.isActive = true
+
+            //Load image
+            this.imageUp = new Image()
+            this.imageUp.src = "assets/dagger_up.png"
+
+            this.imageRight = new Image()
+            this.imageRight.src = "assets/dagger_right.png"
+
+            this.imageDown = new Image()
+            this.imageDown.src = "assets/dagger_down.png"
+
+            this.imageLeft = new Image()
+            this.imageLeft.src = "assets/dagger_left.png"
+        }
+
+        update()
+        {
+            switch(this.direction)
+            {
+                //If direction == RIGHT, increment the dagger's x position
+                case "RIGHT":
+                    this.x += this.speed
+                    break
+
+                //If direction == LEFT, decrement the dagger's x position
+                case "LEFT":
+                    this.x -= this.speed
+                    break
+
+                //If direction == DOWN, increment the dagger's y position
+                case "DOWN":
+                    this.y += this.speed
+                    break
+
+                //If direction == UP, decrement the dagger's x position
+                case "UP":
+                    this.y -= this.speed
+                    break
+            }
+
+            return this.isActive
+        }
+
+        collided(s, direction) { this.isActive = false }
+
+        getDirection() { return this.direction }
+
+        drawYourself(ctx)
+        {
+            switch(this.direction)
+            {
+                case "RIGHT":
+                    ctx.drawImage(this.imageRight, this.x - View.scrollPosX, this.y - View.scrollPosY)
+                    break
+                case "LEFT":
+                    ctx.drawImage(this.imageLeft, this.x - View.scrollPosX, this.y - View.scrollPosY)
+                    break
+                case "DOWN":
+                    ctx.drawImage(this.imageDown, this.x - View.scrollPosX, this.y - View.scrollPosY)
+                    break
+                case "UP":
+                    ctx.drawImage(this.imageUp, this.x - View.scrollPosX, this.y - View.scrollPosY)
+                    break
+            }
+        }
+
+        isDagger() { return true }
+    }
+
+    let game = new Game()
+    let timer = setInterval(function () { game.onTimer() }, 40)
+
+</script>
+</body>
